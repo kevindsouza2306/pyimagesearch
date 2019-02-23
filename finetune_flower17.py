@@ -29,7 +29,7 @@ aug = ImageDataGenerator(rotation_range=30, width_shift_range=0.1, height_shift_
 
 print("[INFO] loading images....")
 imagePaths = list(paths.list_images(args["dataset"]))
-className = [pt.split(os.path.sep) for pt in imagePaths]
+className = [pt.split(os.path.sep)[-2] for pt in imagePaths]
 className = [str(x) for x in np.unique(className)]
 
 aap = AspectAwarePreprocessor(224, 224)
@@ -49,6 +49,9 @@ baseModel = VGG16(weights="imagenet", include_top=False, input_tensor=Input(shap
 headModel = FCHeadNet.built(baseModel, len(className), 256)
 model = Model(inputs=baseModel.input, outputs=headModel)
 
+for (i, layer) in enumerate(model.layers):
+    print("[INFO] {}\t{}".format(i, layer.__class__.__name__))
+
 for layer in baseModel.layers:
     layer.trainable = False
 
@@ -57,11 +60,9 @@ print("[INFO] compining model")
 opt = RMSprop(lr=0.001)
 model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
 
-print("[INFO] training head....")
+print("[INFO] training head.... {}".format(len(trainX) // 32))
 
-model.fit_generator(aug.flow(trainX, trainY, batch_size=32), validation_data=(testX, testY), epochs=25,
-                    steps_per_epoch=len(trainX) // 32, verbose=1)
-
+model.fit_generator(aug.flow(trainX, trainY, batch_size=32), validation_data=(testX, testY), epochs=25,steps_per_epoch=len(trainX) // 32, verbose=1)
 print("[INFO] evaluating after initialization")
 
 predictions = model.predict(testX, batch_size=32)
@@ -78,8 +79,7 @@ opt = SGD(lr=0.001)
 model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
 
 print("[INFO] fine-tuning model....")
-model.fit_generator(aug.flow(trainX, trainY, batch_size=32), validation_data=(testX, testY), epochs=100,
-                    steps_per_epoch=len(trainX) // 32, verbose=1)
+model.fit_generator(aug.flow(trainX, trainY, batch_size=32), validation_data=(testX, testY), epochs=100, steps_per_epoch=len(trainX) // 32, verbose=1)
 print("[INFO] evaluating fine tuning")
 predictions = model.predict(testX, batch_size=32)
 
